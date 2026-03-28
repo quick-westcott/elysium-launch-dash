@@ -1,0 +1,9 @@
+node_modules
+.next
+.env
+.env.local
+*.tsbuildinfo
+.vercel
+.railway
+/git-ignored-wallets
+wallets
