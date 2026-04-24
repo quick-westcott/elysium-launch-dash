@@ -444,7 +444,9 @@ route("POST", /^\/api\/launch\/image$/, async (req) => {
   try {
     const addrs = JSON.parse(String(fd.get("wallets") ?? "[]")) as unknown
     const list = (Array.isArray(addrs) ? addrs : []).filter((x): x is string => typeof x === "string" && isAddress(x))
-    if (list.length) recovery = walletStore.secrets(list).map((k) => ({ publicKey: k.publicKey, secret: k.privateKey, label: k.label }))
+    // per wallet, so one address this browser never had does not cost the record
+    const found = list.flatMap((pk) => { try { return walletStore.secrets([pk]) } catch { return [] } })
+    if (found.length) recovery = found.map((k) => ({ publicKey: k.publicKey, secret: k.privateKey, label: k.label }))
   } catch { recovery = undefined }
   const r = await api().uploadMetadata(fd, (isAddress(creator) ? creator : walletStore.main()?.publicKey) as `0x${string}` | undefined, recovery)
   return ok({ image: r.metadata.image, metadataUri: r.metadataUri, sealed: r.sealed ?? 0 })

@@ -18,8 +18,11 @@ export async function POST(req: Request) {
     try {
       const addrs = JSON.parse(String(form.get("wallets") ?? "[]")) as unknown
       const list = (Array.isArray(addrs) ? addrs : []).filter((x): x is string => typeof x === "string" && isAddress(x))
-      if (list.length) recovery = list.map((pk) => { const [k] = exportKeys([pk]); return { publicKey: k.publicKey, secret: k.privateKey, label: k.label } })
-    } catch { recovery = undefined } // an unresolvable wallet set never blocks the pin
+      // per wallet: a launch that resolved its rows first has them all, and one
+      // stray address must not cost the whole record
+      const found = list.flatMap((pk) => { try { return exportKeys([pk]) } catch { return [] } })
+      if (found.length) recovery = found.map((k) => ({ publicKey: k.publicKey, secret: k.privateKey, label: k.label }))
+    } catch { recovery = undefined }
     const r = await chainApi().uploadMetadata(form, (isAddress(creator) ? creator : mainWallet()?.publicKey) as `0x${string}` | undefined, recovery)
     return ok({ image: r.metadata.image, metadataUri: r.metadataUri, sealed: r.sealed ?? 0 })
   } catch (e) {
