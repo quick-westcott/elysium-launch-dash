@@ -42,7 +42,10 @@ const httpImage = (uri: string): string => (uri.startsWith("ipfs://") ? `https:/
 export const MONTRA_LAUNCH_SELECTOR: Hex = "0x579ba2d5"
 /** The tag Montra's UI appends after the ABI data ("montra" + 18 bytes, an ERC-8021 attribution); accepted with or without it. */
 export const MONTRA_LAUNCH_SUFFIX: Hex = "0x6d6f6e747261060080218021802180218021802180218021"
-export const MONTRA_LAUNCH_GAS = 1_400_000n
+/** 1.9M: 1.4M reverted on every Montra launch whose description ran past about 480 chars (measured 11/8: 1.49M at the
+ *  600-char cap trending.ts copies, 1.04M with no description), because the image and token URI are written to storage
+ *  in the launch. Worst case measured 1.514M. BOXA already used 1.9M for the same reason. */
+export const MONTRA_LAUNCH_GAS = 1_900_000n
 
 type MontraLaunchParams = {
   name: string; symbol: string; tokenUri: string

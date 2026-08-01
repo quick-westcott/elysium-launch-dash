@@ -72,7 +72,7 @@ export async function simulateNativeReceived(calls: SimCall[], recipients: Addre
   return total
 }
 
-const DEFAULT_RPCS = ["https://rpc.agoradex.app", "https://rpc.volta.family", "https://rpc.thekleos.pro/rpc", "https://rpc-live.elysp.com"]
+const DEFAULT_RPCS = ["https://rpc.elysium.kinetiq.xyz", "https://rpc.agoradex.app", "https://rpc.volta.family", "https://rpc.thekleos.pro/rpc", "https://rpc-live.elysp.com"]
 // a browser (demo mode) has no server env: the defaults
 const envList = (k: string) => ((typeof process !== "undefined" && process.env ? process.env[k] : "") || "").split(",").map((s) => s.trim()).filter((u) => /^https:\/\//.test(u))
 

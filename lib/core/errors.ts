@@ -62,5 +62,5 @@ export function errorBody(err: unknown, status?: number): { status: number; body
 export const DEMO_MODE_BODY = {
   error: "This hosted demo keeps no server state: wallets, launches and trades run in your browser.",
   code: "demo_mode",
-  hint: "Use the pages of this app (they talk to the chain through this app's own routes), or clone the repo to run it on your own machine: https://github.com/ElysiumApi-Tools/trenchytools-pons-launcher",
+  hint: "This page runs the whole app in your browser: wallets, launches and sells happen in this tab, not on the server. To run it locally instead, clone this edition's repo from https://github.com/Trenchy-Tools",
 }

@@ -11,7 +11,7 @@ const DEMO = process.env.NEXT_PUBLIC_DEMO === "1"
 const CSP = [
   "default-src 'self'",
   // keep in step with DEFAULT_RPCS in lib/elysium/chain.ts (the browser always uses the defaults)
-  "connect-src 'self' https://api.hyperliquid.xyz https://api.trenchy.tools https://rpc.agoradex.app https://rpc.volta.family https://rpc.thekleos.pro https://rpc-live.elysp.com",
+  "connect-src 'self' https://api.hyperliquid.xyz https://api.trenchy.tools https://rpc.elysium.kinetiq.xyz https://rpc.agoradex.app https://rpc.volta.family https://rpc.thekleos.pro https://rpc-live.elysp.com",
   "img-src 'self' data: blob: https:",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
