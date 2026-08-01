@@ -1,0 +1,22 @@
+# Railway build and deploy for the hosted demo.
+#
+# Demo mode is fixed at BUILD time, not run time: the browser engine only ships when the build runs with
+# NEXT_PUBLIC_DEMO=1, and the CSP only tightens when it does. Railway passes a service's variables to a Dockerfile
+# build as build args, so these two must BOTH be set on the service:
+#
+#   NEXT_PUBLIC_DEMO=1     build arg: ships the browser engine, keeps every key in the visitor's tab
+#   DEMO_MODE=1            run: every /api/* answers 404 demo_mode, so no server route touches a wallet folder
+#
+# The Dockerfile refuses to start if DEMO_MODE=1 but the image was built without NEXT_PUBLIC_DEMO=1, so a half-set
+# service fails loudly instead of running the server-side signing path on a shared host.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# /launch is the app's real page and the stand-in for the redirect at /; a 200 here means the server is serving.
+healthcheckPath = "/launch"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

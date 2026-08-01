@@ -15,6 +15,8 @@ ENV NEXT_PUBLIC_DEMO=$NEXT_PUBLIC_DEMO
 ARG NEXT_PUBLIC_LAUNCHPAD=
 ENV NEXT_PUBLIC_LAUNCHPAD=$NEXT_PUBLIC_LAUNCHPAD
 RUN npm run build
+# A deterministic marker for the runtime check below: minification could knock out any string we grep for.
+RUN if [ "$NEXT_PUBLIC_DEMO" = "1" ]; then echo demo > public/.demo-build; fi
 
 FROM node:24-slim
 WORKDIR /app
@@ -23,5 +25,7 @@ COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
 EXPOSE 3000
-# mount a volume at /data (docker run -v …:/data); declared here as a comment so platforms that manage volumes (Railway) accept the file
-CMD ["sh", "-c", "mkdir -p /data/wallets && node server.js"]
+# Refuse to start in a state where the browser engine was not built but the server routes are open: that combination
+# signs and sends from the container against a wallet folder on a shared host. Demo mode is fixed at build time, so the
+# check is the marker the build wrote, not the runtime env. Local mode (no DEMO_MODE) skips the check.
+CMD ["sh", "-c", "if [ \"$DEMO_MODE\" = \"1\" ] && [ ! -f /app/public/.demo-build ]; then echo 'DEMO_MODE=1 but this image was built without NEXT_PUBLIC_DEMO=1: the server routes would sign with a server-side wallet folder. Rebuild with --build-arg NEXT_PUBLIC_DEMO=1.' >&2; exit 1; fi; mkdir -p /data/wallets && node server.js"]
