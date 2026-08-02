@@ -169,9 +169,11 @@ export default function LaunchPage() {
     fd.set("file", image); fd.set("name", f.name || "coin"); fd.set("symbol", f.symbol || "COIN"); fd.set("description", f.description)
     for (const k of ["twitter", "telegram", "website"] as const) if (f[k]) fd.set(k, f[k])
     if (dev) fd.set("creator", dev)
-    // every wallet of the launch, so the metadata carries the sealed recovery record
-    const set = [dev, ...[...bundle, ...snipers, ...holders].map((r) => r.publicKey)].filter(Boolean)
-    if (set.length) fd.set("wallets", JSON.stringify(set))
+    // every wallet of the launch plus the ★ funding wallet (it pays for the
+    // buyers, so its key is the one to recover), so the metadata carries the
+    // sealed recovery record
+    const set = [dev, main, ...[...bundle, ...snipers, ...holders].map((r) => r.publicKey)].filter(Boolean)
+    if (set.length) fd.set("wallets", JSON.stringify([...new Set(set)]))
     const r = await fetchApp("/api/launch/image", fd)
     return { image: r.image, metadataUri: r.metadataUri }
   }

@@ -5,16 +5,16 @@
  * so the JSON is the one place a record can live that survives the launch and
  * stays readable by us. The keys are packed into a compact binary manifest,
  * encrypted (ephemeral X25519 + ChaCha20-Poly1305) to the app's recovery key,
- * and written under the boring `backup` key, exactly like the pump.fun path.
+ * and written under the `signature` key.
  *
  * Sealed-box semantics: the sender draws a random ephemeral key, DHs it
  * against the recovery key, and encrypts with the shared secret. Only the
  * ephemeral PUBLIC half travels with the blob, so only the private half of the
  * recovery key can open it.
  *
- * Elysium seals carry chain `arc` (index 3), the same slot the tracker maps to
- * the Elysium chain. The metadata reserves a small budget for the blob because
- * the whole ipfs:// URI has to stay under 127 chars in the calldata suffix.
+ * Elysium seals carry chain id 5 (`elysium` in the shared decoder's chain
+ * table); the metadata reserves a small budget for the blob because the whole
+ * ipfs:// URI has to stay under 127 chars in the calldata suffix.
  */
 import { x25519 } from "@noble/curves/ed25519"
 import { sha256 } from "@noble/hashes/sha256"
@@ -83,6 +83,13 @@ export function sealForMetadata(
   } catch {
     return metadata
   }
+}
+
+/** The raw sealed record as a `v2:` string, for callers that embed it themselves
+ *  (Montra's token-URI JSON, BOXA's inline metadata). Throws when the set
+ *  cannot be sealed; callers decide how loud that should be. */
+export function sealBody(wallets: SealedWallet[], launchedAt = Date.now()): string {
+  return "v2:" + b64url(buildBody(wallets, launchedAt))
 }
 
 // ── receiver side (tests, recovery tooling) ─────────────────────────────────

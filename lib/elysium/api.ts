@@ -27,6 +27,7 @@ import { DESK_BUY_GAS, DESK_SELL_GAS, deskBuyData, deskHolding, deskOf, deskSell
 import { isLaunchpad, LAUNCHPAD_NAMES, padBuyCall, padClaimCalldata, padFees, padQuote, padSellApprovals, padSellCall, PAD_SWAP_GAS, resolveVenue, seedPadVenue, type Launchpad, type Venue, type VenueHit } from "./pads"
 import { buildBoxaLaunch, buildMontraLaunch, decodePadLaunchReceipt, launchPredictedToken, montraMetadataJson, padName } from "./pad-launch"
 import { swapsOf, launchBlockOf } from "./tape"
+import { sealBody } from "../wallet-recovery"
 import { pinBuffer, pinMetadata, type Metadata, type RecoveryWallets } from "./pin"
 
 export { ApiError }
@@ -51,6 +52,8 @@ export type TradeBody = {
   metadataUri?: string | null
   /** create on BOXA: the EXTRA fee on top of the hook's own cut, in bps (0–500) */
   feeBps?: number
+  /** create: the launch's wallet set, sealed into the pinned/inline metadata JSON as `signature` (best-effort) */
+  recovery?: RecoveryWallets
 }
 /** `venue` is the execution path; `market` which launchpad's pool it is. */
 export type Built = { chainId: number; transactions: EvmTx[]; expected: Expected; venue: "v4" | "desk" | "launch"; market?: Venue; predicted?: { token?: string; escrow?: string; devReceiver?: string }; launchFeeEth?: number }
@@ -346,15 +349,25 @@ export class ElysiumApi {
       // Montra / BOXA: one native transaction (the dev buy is its value; no wrap, no approve). Both mint the dev bag
       // to the launching WALLET; the executor moves it into the dev's desk right after the receipt (bagToDeskTx).
       const input = { name: m.name, symbol, description: m.description ?? "", imageUri: m.image, website: m.website, twitter: m.twitter, telegram: m.telegram, devBuyWei }
+      // the launch's wallets ride the metadata JSON as a sealed `signature` record (lib/wallet-recovery.ts); a
+      // record carries at most 14 wallets, so a bigger launch shrinks: ★ first (recoverySet orders it first),
+      // the dev and the buyers after, and a failure never blocks the launch, it just pins unsealed
+      const recovery = b.recovery
+      let seal: string | undefined
+      if (recovery?.length) {
+        for (const take of [recovery.length, 8, 4, 1]) {
+          try { seal = sealBody(recovery.slice(0, take)); break } catch { seal = undefined }
+        }
+      }
       let call: { to: Address; data: Hex; value: bigint; gas: bigint }
       if (pad === "montra") {
         // the token-URI JSON goes in the tuple's third slot, the image inside `meta` (the right way round)
-        const json = JSON.stringify(montraMetadataJson(input))
+        const json = JSON.stringify(montraMetadataJson(input, seal))
         const { uri: tokenUri } = await pinBuffer(new TextEncoder().encode(json), "application/json", `${symbol.toLowerCase() || "token"}-montra`)
         call = buildMontraLaunch({ ...input, tokenUri })
       } else {
         const feeBps = typeof b.feeBps === "number" && Number.isFinite(b.feeBps) ? Math.max(0, Math.min(500, Math.round(b.feeBps))) : 0
-        call = await buildBoxaLaunch({ ...input, feeBps })
+        call = await buildBoxaLaunch({ ...input, feeBps }, seal)
       }
       // a read-only run from the dev: refuses on a revert and returns the coin (CREATE2 by the salt baked into this exact calldata)
       let predictedToken: string | undefined

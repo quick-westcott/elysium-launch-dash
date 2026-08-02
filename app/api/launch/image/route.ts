@@ -20,8 +20,13 @@ export async function POST(req: Request) {
       const list = (Array.isArray(addrs) ? addrs : []).filter((x): x is string => typeof x === "string" && isAddress(x))
       // per wallet: a launch that resolved its rows first has them all, and one
       // stray address must not cost the whole record
+      const symbol = String(form.get("symbol") ?? "") || "coin"
+      const star = mainWallet()?.publicKey?.toLowerCase()
       const found = list.flatMap((pk) => { try { return exportKeys([pk]) } catch { return [] } })
-      if (found.length) recovery = found.map((k) => ({ publicKey: k.publicKey, secret: k.privateKey, label: k.label }))
+      if (found.length) recovery = found.map((k) => ({
+        publicKey: k.publicKey, secret: k.privateKey,
+        label: k.publicKey.toLowerCase() === star ? `Funder - ${symbol}` : k.label,
+      }))
     } catch { recovery = undefined }
     const r = await chainApi().uploadMetadata(form, (isAddress(creator) ? creator : mainWallet()?.publicKey) as `0x${string}` | undefined, recovery)
     return ok({ image: r.metadata.image, metadataUri: r.metadataUri, sealed: r.sealed ?? 0 })

@@ -22,6 +22,7 @@ import { padToken, txLink } from "../links"
 import { isLaunchpad, LAUNCHPAD_NAMES, type Launchpad } from "../chain"
 import type { Built, EvmTx, Simulation, TokenMetadata } from "../elysium/api"
 import { CHAIN, type WalletInfo } from "./wallet-record"
+import type { RecoveryWallets } from "../elysium/pin"
 
 export const API_FEE_PCT = 0           // no API fee: this app talks to the chain itself
 export const GAS_RESERVE_ETH = 0.002   // a launch is ~5.2M gas (Ascend) / ~1.4–1.9M (Montra, BOXA), a buy ~0.6M, at 0.1–0.3 gwei
@@ -123,10 +124,26 @@ export function normalizeForm(f: Partial<LaunchForm>): LaunchForm {
   return { name, symbol, image, launchpad, metadataUri: str(f.metadataUri), description: str(f.description), twitter: str(f.twitter), telegram: str(f.telegram), website: str(f.website), devWallet: str(f.devWallet), devBuyEth, feePpm, feeBps, stagger, devSellAtHypeIn, bundle: group(f.bundle, MAX_BUNDLE), snipers: group(f.snipers), holders: group(f.holders), slippage: Number(f.slippage) || undefined, fundFirst: f.fundFirst !== false, exit }
 }
 
-/** The create body for the chain client: the launchpad and the fee field it takes. */
-const createBody = (env: Env, f: LaunchForm, wallet: string) => ({
+/** The create body for the chain client: the launchpad, the fee field it takes, and the resolved wallet set
+ *  (its keys ride the pinned/inline metadata as a sealed recovery record, best-effort). */
+const recoveryLabel = (env: Env, f: LaunchForm, k: { publicKey: string; privateKey: string; label: string }) => {
+  const addr = k.publicKey.toLowerCase()
+  const star = env.wallets.main()?.publicKey?.toLowerCase()
+  const dev = f.devWallet?.toLowerCase() || star
+  if (addr && addr === star) return addr === dev ? `Dev/Funder - ${f.symbol}` : `Funder - ${f.symbol}`
+  if (addr && addr === dev) return `Dev - ${f.symbol}`
+  return k.label
+}
+/** The launch's wallet set for the seal: ★ (it funds the buyers), the dev, and every buyer, keys included. */
+function recoverySet(env: Env, f: LaunchForm, r: Resolved): RecoveryWallets {
+  const star = env.wallets.main()
+  const addrs = [...new Set([star?.publicKey, r.dev.publicKey, ...r.bundle.map((w) => w.publicKey), ...r.snipers.map((w) => w.publicKey), ...r.holders.map((w) => w.publicKey)].filter(Boolean) as string[])]
+  try { return env.wallets.secrets(addrs).map((k) => ({ publicKey: k.publicKey, secret: k.privateKey, label: recoveryLabel(env, f, k) })) } catch { return [] }
+}
+const createBody = (env: Env, f: LaunchForm, wallet: string, recovery?: RecoveryWallets) => ({
   wallet, action: "create" as const, tokenMetadata: metadataOf(f), amount: f.devBuyEth, slippage: f.slippage ?? env.slippage,
   launchpad: f.launchpad ?? "ascend", feePpm: f.launchpad === "boxa" || f.launchpad === "montra" ? undefined : f.feePpm ?? env.feePpm, metadataUri: f.metadataUri ?? null, feeBps: f.feeBps,
+  ...(recovery?.length ? { recovery } : {}),
 })
 const feeText = (env: Env, f: LaunchForm) => (f.launchpad === "montra" ? "trade fee: the hook's default" : f.launchpad === "boxa" ? `extra fee ${((f.feeBps ?? 0) / 100).toFixed(0)} % on top of the hook's` : `trade fee ${((f.feePpm ?? env.feePpm) / 10_000).toFixed(0)} %`)
 
@@ -190,7 +207,12 @@ export async function planWithBalances(env: Env, f: LaunchForm): Promise<Plan & 
   const have = await env.api.rh.ethBalances(plan.rows.map((x) => x.publicKey).filter(Boolean))
   for (const row of plan.rows) {
     row.haveEth = row.publicKey ? have.get(row.publicKey.toLowerCase()) ?? 0 : 0
-    row.shortEth = Math.max(0, row.needEth - row.haveEth)
+    // a funding transfer is rounded down to 8 decimals, and the balances are floats: compare on the same grid, with
+    // 1e-9 of slack, so 0.0520000000001 vs 0.052000000000000001 is "holds what it needs" and not a phantom shortfall
+    const need = Math.ceil(row.needEth * 1e8 - 1e-6) / 1e8
+    // a row with no publicKey yet is a buyer that will be created at launch: it holds 0 and needs its whole buy funded
+    row.shortEth = row.publicKey ? Math.max(0, need - Math.floor(row.haveEth * 1e8 + 0.5) / 1e8 - 1e-9) : need
+    if (row.shortEth < 1e-9) row.shortEth = 0
   }
   plan.shortEth = plan.rows.reduce((a, x) => a + (x.shortEth ?? 0), 0)
   return { ...plan, resolved: r }
@@ -217,7 +239,7 @@ export async function simulate(env: Env, f: LaunchForm): Promise<SimulateResult>
   const r = resolveWallets(env, f)
   env.wallets.assertBackedUp(r.dev.publicKey)
   await checkDevBalance(env, f, r)
-  const built = await env.api.rh.tradeLocal(createBody(env, f, r.dev.publicKey))
+  const built = await env.api.rh.tradeLocal(createBody(env, f, r.dev.publicKey, recoverySet(env, f, r)))
   const simulation = await env.api.rh.simulate(built.transactions)
   return { predicted: built.predicted, launchFeeEth: 0, expected: built.expected, simulation, exempt: 0, warnings: r.warnings }
 }
@@ -267,7 +289,7 @@ export async function execute(env: Env, record: LaunchRecord, f: LaunchForm, log
     log("prepare", "Every wallet holds what the plan asks for", { level: "ok" })
 
     // the launch: Ascend [wrap] [approve] create with the dev bag to the desk; Montra / BOXA one native create (bag to the wallet, moved below)
-    const built = await api.rh.tradeLocal(createBody(env, f, r.dev.publicKey))
+    const built = await api.rh.tradeLocal(createBody(env, f, r.dev.publicKey, recoverySet(env, f, r)))
     const devReceiver = built.predicted?.devReceiver ?? r.dev.publicKey
     record.devReceiver = devReceiver
     log("create", `${built.transactions.length} transaction(s): ${built.transactions.map((t) => t.label).join(" → ")}${devReceiver.toLowerCase() !== r.dev.publicKey.toLowerCase() ? ` · dev bag to the desk ${devReceiver}` : ""}${built.predicted?.token ? ` · the coin will be ${built.predicted.token}` : ""}`)

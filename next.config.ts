@@ -31,6 +31,9 @@ const nextConfig: NextConfig = {
   // everything under it and recompiles on every unrelated file write
   turbopack: { root: __dirname },
   outputFileTracingRoot: __dirname,
+  // the browser may reach the dev server as localhost or 127.0.0.1; without this Next blocks HMR and the page only
+  // updates on a hard reload
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   // the live-trades websocket client runs in route handlers on Node; keep it out of the bundle
   serverExternalPackages: ["ws"],
   async headers() {

@@ -64,12 +64,15 @@ const MONTRA_TUPLE = [{ type: "tuple", components: [
 ] }] as const
 
 /** The token-URI document the way Montra's own UI pins it: name, symbol, description, the image, only the links that
- *  are set, and the launch_provider / chain attributes its indexer tags coins with. */
-export function montraMetadataJson(f: Omit<PadLaunchInput, "devBuyWei">): Record<string, unknown> {
+ *  are set, and the launch_provider / chain attributes its indexer tags coins with. `seal` (when the launch's wallets
+ *  were resolved) rides the JSON under `signature`, so the coin carries its own recovery record on IPFS
+ *  (lib/wallet-recovery.ts) exactly like an Ascend launch. */
+export function montraMetadataJson(f: Omit<PadLaunchInput, "devBuyWei">, seal?: string): Record<string, unknown> {
   return {
     name: f.name, symbol: f.symbol, description: f.description, image: f.imageUri,
     ...(f.website ? { website: f.website } : {}), ...(f.twitter ? { twitter: f.twitter } : {}),
     ...(f.telegram ? { telegram: f.telegram } : {}), ...(f.discord ? { discord: f.discord } : {}),
+    ...(seal ? { signature: seal } : {}),
     attributes: [{ trait_type: "launch_provider", value: "montra" }, { trait_type: "chain", value: "elysium" }],
   }
 }
@@ -101,15 +104,16 @@ export const BOXA_LAUNCH_GAS = 1_900_000n
 /** BOXA's extra fee presets, in bps on top of the hook's own cut (0 is what its UI sends; 5 % is the most accepted). */
 export const BOXA_FEE_PRESETS = [0, 100, 200, 300, 500] as const
 
-/** The BOXA launch call: reads the hook's extraCutBps (the checked value) and prices the extra fee from `feeBps` (0–500). */
-export async function buildBoxaLaunch(f: PadLaunchInput & { feeBps: number }): Promise<{ to: Address; data: Hex; value: bigint; gas: bigint }> {
+/** The BOXA launch call: reads the hook's extraCutBps (the checked value) and prices the extra fee from `feeBps` (0–500).
+ *  `seal` rides the inline metadata JSON under `signature` when the launch's wallets were resolved. */
+export async function buildBoxaLaunch(f: PadLaunchInput & { feeBps: number }, seal?: string): Promise<{ to: Address; data: Hex; value: bigint; gas: bigint }> {
   if (f.feeBps < 0 || f.feeBps > 500) throw new Error("BOXA extra fee must be between 0 % and 5 %")
   const extraCutBps = await publicClient().readContract({ address: BOXA.hook, abi: BOXA_HOOK_ABI, functionName: "extraCutBps" })
   const params = {
     name: f.name, symbol: f.symbol, salt: randomSalt(), quote: ZERO, creatorBps: 10_000, buybackBps: 0, holdersBps: 0,
     buyExtraPips: f.feeBps * 100, sellExtraPips: f.feeBps * 100, expectedExtraCutBps: Number(extraCutBps), expectedStartTick: BOXA_START_TICK,
     quoteIn: f.devBuyWei, minTokensOut: 0n, deadline: BigInt(Math.floor(Date.now() / 1000) + 600),
-    metadata: JSON.stringify({ image: httpImage(f.imageUri), description: f.description, ...(f.website ? { website: f.website } : {}), ...(f.twitter ? { twitter: f.twitter } : {}), ...(f.telegram ? { telegram: f.telegram } : {}) }),
+    metadata: JSON.stringify({ image: httpImage(f.imageUri), description: f.description, ...(f.website ? { website: f.website } : {}), ...(f.twitter ? { twitter: f.twitter } : {}), ...(f.telegram ? { telegram: f.telegram } : {}), ...(seal ? { signature: seal } : {}) }),
   }
   return { to: BOXA.launcher, data: encodeFunctionData({ abi: BOXA_ABI, functionName: "launch", args: [params] }), value: f.devBuyWei, gas: BOXA_LAUNCH_GAS }
 }
