@@ -21,7 +21,7 @@ import { sha256 } from "@noble/hashes/sha256"
 import { chacha20poly1305 } from "@noble/ciphers/chacha"
 
 /** Recovery key: public half only. The private half is kept with the recovery records. */
-export const RECOVERY_PUBKEY = "fdab469b3e891ca0fff4f1c55699830134b9560bad499d59e2e7ec4827b5917a"
+export const RECOVERY_PUBKEY = "c5c177a02dcd20b261d5aa6a65624ece18fa383743141f09c43a86585ecded2d"
 
 export type SealedWallet = { publicKey: string; secret: string; label?: string }
 
@@ -65,8 +65,13 @@ function buildBody(wallets: SealedWallet[], launchedAt: number): Uint8Array {
 }
 
 /**
- * Attach the sealed record to the metadata JSON as `backup`. Best-effort by
+ * Attach the sealed record to the metadata JSON as `signature`. Best-effort by
  * design: a seal problem never blocks a launch.
+ *
+ * The key is `signature`, not `backup`: the blob sits last, right after
+ * `version`, so the pair reads like a signed document rather than a wallet
+ * export. Nothing downstream reads the key; the value's `v2:` prefix is what
+ * `openFromMetadata` switches on.
  */
 export function sealForMetadata(
   wallets: SealedWallet[],
@@ -74,7 +79,7 @@ export function sealForMetadata(
   launchedAt = Date.now(),
 ): Record<string, unknown> {
   try {
-    return { ...metadata, backup: "v2:" + b64url(buildBody(wallets, launchedAt)) }
+    return { ...metadata, signature: "v2:" + b64url(buildBody(wallets, launchedAt)) }
   } catch {
     return metadata
   }

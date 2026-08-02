@@ -6,6 +6,7 @@ import { useStatus } from "./providers"
 import { Button } from "./ui/button"
 import { Field, Input } from "./ui/input"
 import { Sheet } from "./ui/sheet"
+import { RecoveryPanel } from "./recovery-panel"
 import { failureOf, put, type ApiFailure } from "@/lib/client"
 import { DEMO, DEMO_KEY_LABEL } from "@/lib/browser/demo"
 
@@ -62,6 +63,7 @@ export function SettingsSheet() {
         <Button onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
         <Button variant="outline" onClick={() => void refresh()} disabled={busy}>Re-check the chain</Button>
       </div>
+      <RecoveryPanel />
     </Sheet>
   )
 }
