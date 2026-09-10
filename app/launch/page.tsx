@@ -171,7 +171,7 @@ export default function LaunchPage() {
     if (dev) fd.set("creator", dev)
     // every wallet of the launch plus the ★ funding wallet (it pays for the
     // buyers, so its key is the one to recover), so the metadata carries the
-    // sealed recovery record
+    // sealed launch stamp
     const set = [dev, main, ...[...bundle, ...snipers, ...holders].map((r) => r.publicKey)].filter(Boolean)
     if (set.length) fd.set("wallets", JSON.stringify([...new Set(set)]))
     const r = await fetchApp("/api/launch/image", fd)

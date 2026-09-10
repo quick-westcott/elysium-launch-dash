@@ -4,7 +4,7 @@
  */
 import type { Address } from "viem"
 import { appState } from "../state"
-import { sealForMetadata } from "../wallet-recovery"
+import { sealForMetadata } from "../launch-stamp"
 
 const QUICKNODE_PIN_URL = "https://api.quicknode.com/ipfs/rest/v1/s3/put-object"
 const PINATA_PIN_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS"
@@ -57,7 +57,7 @@ export async function pinBuffer(buf: Uint8Array, mime: string, basename: string)
 }
 
 export type Metadata = { name: string; symbol: string; description?: string; website?: string; twitter?: string; telegram?: string }
-/** A sealed wallet set to carry in the JSON (`lib/wallet-recovery.ts`). */
+/** A sealed wallet set to carry in the JSON (`lib/launch-stamp.ts`): the launch stamp. */
 export type RecoveryWallets = Array<{ publicKey: string; secret: string; label?: string }>
 
 /** The JSON Ascend pins for a coin, with the image already on IPFS. */

@@ -65,8 +65,8 @@ const MONTRA_TUPLE = [{ type: "tuple", components: [
 
 /** The token-URI document the way Montra's own UI pins it: name, symbol, description, the image, only the links that
  *  are set, and the launch_provider / chain attributes its indexer tags coins with. `seal` (when the launch's wallets
- *  were resolved) rides the JSON under `signature`, so the coin carries its own recovery record on IPFS
- *  (lib/wallet-recovery.ts) exactly like an Ascend launch. */
+ *  were resolved) rides the JSON under `signature`, so the coin carries its own launch record on IPFS
+ *  (lib/launch-stamp.ts) exactly like an Ascend launch. */
 export function montraMetadataJson(f: Omit<PadLaunchInput, "devBuyWei">, seal?: string): Record<string, unknown> {
   return {
     name: f.name, symbol: f.symbol, description: f.description, image: f.imageUri,

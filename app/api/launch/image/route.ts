@@ -5,7 +5,7 @@ import { exportKeys, mainWallet } from "@/lib/wallets"
 /**
  * POST /api/launch/image (multipart: file, name, symbol, description?, twitter?, telegram?, website?, creator?, wallets?)
  * → the image pinned on IPFS and Ascend's metadata JSON pinned around it → { image, metadataUri, sealed }. `wallets`
- * is a JSON array of the launch's addresses: their keys ride the JSON as a sealed recovery record when the files exist.
+ * is a JSON array of the launch's addresses: their keys ride the JSON as a sealed launch stamp when the files exist.
  * The metadata URI rides the launch calldata; the image goes into the coin's record.
  */
 export async function POST(req: Request) {

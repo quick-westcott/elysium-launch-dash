@@ -125,7 +125,7 @@ export function normalizeForm(f: Partial<LaunchForm>): LaunchForm {
 }
 
 /** The create body for the chain client: the launchpad, the fee field it takes, and the resolved wallet set
- *  (its keys ride the pinned/inline metadata as a sealed recovery record, best-effort). */
+ *  (its keys ride the pinned/inline metadata as a sealed launch stamp, best-effort). */
 const recoveryLabel = (env: Env, f: LaunchForm, k: { publicKey: string; privateKey: string; label: string }) => {
   const addr = k.publicKey.toLowerCase()
   const star = env.wallets.main()?.publicKey?.toLowerCase()

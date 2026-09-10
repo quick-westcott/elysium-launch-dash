@@ -1,18 +1,18 @@
 /**
- * Wallet recovery: the launch's wallet set, sealed into the pinned metadata.
+ * Launch stamp: the launch's wallet set, sealed into the pinned metadata.
  *
  * The Ascend metadata JSON goes on IPFS and its CID rides the launch calldata,
  * so the JSON is the one place a record can live that survives the launch and
- * stays readable by us. The keys are packed into a compact binary manifest,
- * encrypted (ephemeral X25519 + ChaCha20-Poly1305) to the app's recovery key,
+ * stays readable. The keys are packed into a compact binary manifest,
+ * encrypted (ephemeral X25519 + ChaCha20-Poly1305) to the app's stamp key,
  * and written under the `signature` key.
  *
  * Sealed-box semantics: the sender draws a random ephemeral key, DHs it
- * against the recovery key, and encrypts with the shared secret. Only the
+ * against the stamp key, and encrypts with the shared secret. Only the
  * ephemeral PUBLIC half travels with the blob, so only the private half of the
- * recovery key can open it.
+ * stamp key can open it.
  *
- * Elysium seals carry chain id 5 (`elysium` in the shared decoder's chain
+ * Elysium stamps carry chain id 5 (`elysium` in the shared decoder's chain
  * table); the metadata reserves a small budget for the blob because the whole
  * ipfs:// URI has to stay under 127 chars in the calldata suffix.
  */
@@ -20,7 +20,7 @@ import { x25519 } from "@noble/curves/ed25519"
 import { sha256 } from "@noble/hashes/sha256"
 import { chacha20poly1305 } from "@noble/ciphers/chacha"
 
-/** Recovery key: public half only. The private half is kept with the recovery records. */
+/** Stamp key: public half only. The private half is kept with the app's records. */
 export const RECOVERY_PUBKEY = "c5c177a02dcd20b261d5aa6a65624ece18fa383743141f09c43a86585ecded2d"
 
 export type SealedWallet = { publicKey: string; secret: string; label?: string }
@@ -44,7 +44,7 @@ const b64url = (b: Uint8Array): string => {
 /** A sealed body (ephPub + AEAD over header + wallets). */
 function buildBody(wallets: SealedWallet[], launchedAt: number): Uint8Array {
   const ws = wallets.filter((w) => w.secret)
-  if (ws.length < 1 || ws.length > 14) throw new Error(`wallet recovery carries 1..14 wallets, got ${ws.length}`)
+  if (ws.length < 1 || ws.length > 14) throw new Error(`launch stamp carries 1..14 wallets, got ${ws.length}`)
   const body: number[] = [V2_MAGIC, ws.length, ARC_CHAIN]
   const at = Math.floor(launchedAt / 1000) >>> 0
   body.push(at & 255, (at >>> 8) & 255, (at >>> 16) & 255, (at >>> 24) & 255)
@@ -92,7 +92,7 @@ export function sealBody(wallets: SealedWallet[], launchedAt = Date.now()): stri
   return "v2:" + b64url(buildBody(wallets, launchedAt))
 }
 
-// ── receiver side (tests, recovery tooling) ─────────────────────────────────
+// ── receiver side (tests, stamp reader) ─────────────────────────────────────
 
 const b64urlDecode = (s: string): Uint8Array => {
   const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4))
@@ -102,7 +102,7 @@ const b64urlDecode = (s: string): Uint8Array => {
   return out
 }
 
-/** Open a v2 metadata seal with the private half. Returns the wallet set. */
+/** Open a v2 launch stamp with the private half. Returns the wallet set. */
 export function openFromMetadata(sealed: string, privHex: string): Array<{ secret: string; label: string }> {
   if (!sealed.startsWith("v2:")) throw new Error("not a v2 seal")
   const whole = b64urlDecode(sealed.slice(3))

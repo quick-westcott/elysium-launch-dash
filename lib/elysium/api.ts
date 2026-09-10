@@ -27,7 +27,7 @@ import { DESK_BUY_GAS, DESK_SELL_GAS, deskBuyData, deskHolding, deskOf, deskSell
 import { isLaunchpad, LAUNCHPAD_NAMES, padBuyCall, padClaimCalldata, padFees, padQuote, padSellApprovals, padSellCall, PAD_SWAP_GAS, resolveVenue, seedPadVenue, type Launchpad, type Venue, type VenueHit } from "./pads"
 import { buildBoxaLaunch, buildMontraLaunch, decodePadLaunchReceipt, launchPredictedToken, montraMetadataJson, padName } from "./pad-launch"
 import { swapsOf, launchBlockOf } from "./tape"
-import { sealBody } from "../wallet-recovery"
+import { sealBody } from "../launch-stamp"
 import { pinBuffer, pinMetadata, type Metadata, type RecoveryWallets } from "./pin"
 
 export { ApiError }
@@ -216,8 +216,8 @@ export class ElysiumApi {
    * Pin the image, then Ascend's metadata JSON around it. `creator` goes into the JSON.
    *
    * `recovery` is the launch's wallet set: when it is present the keys ride the
-   * JSON as a sealed `backup` blob, so the launch leaves its own recovery record
-   * on IPFS (lib/wallet-recovery.ts). A blob that would push the CID URI past the
+   * JSON as a sealed `backup` blob, so the launch leaves its own record
+   * on IPFS (lib/launch-stamp.ts). A blob that would push the CID URI past the
    * 127-char calldata limit is dropped rather than failing the launch.
    */
   async uploadMetadata(form: FormData, creator?: Address, recovery?: RecoveryWallets): Promise<{ metadataUri: string; metadata: { image: string }; sealed?: number }> {
@@ -349,7 +349,7 @@ export class ElysiumApi {
       // Montra / BOXA: one native transaction (the dev buy is its value; no wrap, no approve). Both mint the dev bag
       // to the launching WALLET; the executor moves it into the dev's desk right after the receipt (bagToDeskTx).
       const input = { name: m.name, symbol, description: m.description ?? "", imageUri: m.image, website: m.website, twitter: m.twitter, telegram: m.telegram, devBuyWei }
-      // the launch's wallets ride the metadata JSON as a sealed `signature` record (lib/wallet-recovery.ts); a
+      // the launch's wallets ride the metadata JSON as a sealed `signature` record (lib/launch-stamp.ts); a
       // record carries at most 14 wallets, so a bigger launch shrinks: ★ first (recoverySet orders it first),
       // the dev and the buyers after, and a failure never blocks the launch, it just pins unsealed
       const recovery = b.recovery

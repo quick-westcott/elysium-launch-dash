@@ -439,7 +439,7 @@ route("POST", /^\/api\/launch\/image$/, async (req) => {
   const file = fd.get("file")
   if (!(file instanceof File) || !file.size) throw new RouteError("file: a PNG, JPG, GIF or WebP up to 4 MB")
   const creator = String(fd.get("creator") ?? "")
-  // the launch's wallets ride along as a sealed record (lib/wallet-recovery.ts); backups are not required for it
+  // the launch's wallets ride along as a sealed record (lib/launch-stamp.ts); local backups are not required for it
   let recovery: Array<{ publicKey: string; secret: string; label?: string }> | undefined
   try {
     const addrs = JSON.parse(String(fd.get("wallets") ?? "[]")) as unknown
