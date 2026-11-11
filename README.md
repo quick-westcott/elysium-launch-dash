@@ -25,6 +25,9 @@ how a launch works on each.
 > sign locally), exactly the way the pons and pump.fun starters work today, and the relay list becomes a fallback.
 > Everything else in this README stays the same.
 
+> **API note** — this app talks to the [TrenchyTools API](https://trenchy.tools) (`api.trenchy.tools`), a third-party hosted API (we're not affiliated, it's just the convenient one). It handles the chain calls, Jito bundles and IPFS pinning. Pointing it at QuickNode, Helius or your own RPC instead needs extra code.
+
+
 ## What each feature talks to
 
 | Feature | Today (pre-mainnet) | At the mainnet launch |
